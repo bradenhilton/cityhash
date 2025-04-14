@@ -171,27 +171,27 @@ func CityHash64(s []byte, length uint32) uint64 {
 
 	// For strings over 64 bytes we hash the end first, and then as we
 	// loop we keep 56 bytes of state: v, w, x, y, and z.
-	var x uint64 = unalignedLoad64(s)
-	var y uint64 = unalignedLoad64(s[length-16:]) ^ k1
-	var z uint64 = unalignedLoad64(s[length-56:]) ^ k0
-	var v Uint128 = weakHashLen32WithSeeds_3(s[length-64:], uint64(length), y)
-	var w Uint128 = weakHashLen32WithSeeds_3(s[length-32:], uint64(length)*k1, k0)
-	z += shiftMix(v.Higher64()) * k1
-	x = rotate(z+x, 39) * k1
-	y = rotate(y, 33) * k1
+	var x uint64 = unalignedLoad64(s[length-40:])
+	var y uint64 = unalignedLoad64(s[length-16:]) + unalignedLoad64(s[length-56:])
+	var z uint64 = hashLen16(unalignedLoad64(s[length-48:])+uint64(length), unalignedLoad64(s[length-24:]))
+	var v Uint128 = weakHashLen32WithSeeds_3(s[length-64:], uint64(length), z)
+	var w Uint128 = weakHashLen32WithSeeds_3(s[length-32:], y+k1, x)
+	x = x*k1 + unalignedLoad64(s)
 
 	// Decrease length to the nearest multiple of 64, and operate on 64-byte chunks.
 	length = (length - 1) & ^uint32(63)
+	offset := 0
 	for {
-		x = rotate(x+y+v.Lower64()+unalignedLoad64(s[16:]), 37) * k1
-		y = rotate(y+v.Higher64()+unalignedLoad64(s[48:]), 42) * k1
+		x = rotate(x+y+v.Lower64()+unalignedLoad64(s[offset+8:]), 37) * k1
+		y = rotate(y+v.Higher64()+unalignedLoad64(s[offset+48:]), 42) * k1
 		x ^= w.Higher64()
-		y ^= v.Lower64()
-		z = rotate(z^w.Lower64(), 33)
-		v = weakHashLen32WithSeeds_3(s, v.Higher64()*k1, x+w.Lower64())
-		w = weakHashLen32WithSeeds_3(s[32:], z+w.Higher64(), y)
+		y += v.Lower64() + unalignedLoad64(s[offset+40:])
+		z = rotate(z+w.Lower64(), 33) * k1
+		v = weakHashLen32WithSeeds_3(s[offset:], v.Higher64()*k1, x+w.Lower64())
+		w = weakHashLen32WithSeeds_3(s[offset+32:], z+w.Higher64(), y+unalignedLoad64(s[offset+16:]))
 		swap(&z, &x)
 		s = s[64:]
+		offset += 64
 		length -= 64
 		if length == 0 {
 			break
