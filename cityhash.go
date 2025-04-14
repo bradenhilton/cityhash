@@ -86,7 +86,7 @@ func hashLen16(u, v uint64) uint64 {
 }
 
 func hashLen0to16(s []byte, length uint32) uint64 {
-	if length >= 8 {
+	if length > 8 {
 		var a uint64 = unalignedLoad64(s)
 		var b uint64 = unalignedLoad64(s[length-8:])
 		return hashLen16(a, rotateByAtLeast1(b+uint64(length), length)) ^ b
